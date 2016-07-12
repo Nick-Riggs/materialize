@@ -1378,7 +1378,10 @@ $(document).ready(function(){
 
       // Defaults
       var defaults = {
-        delay: 350
+        delay: 350,
+        tooltip: '',
+        position: 'bottom',
+        html: false
       };
 
       // Remove tooltip from the activator
@@ -1392,50 +1395,73 @@ $(document).ready(function(){
 
       options = $.extend(defaults, options);
 
-
-      return this.each(function(){
+      return this.each(function() {
         var tooltipId = Materialize.guid();
         var origin = $(this);
         origin.attr('data-tooltip-id', tooltipId);
 
-        // Create Text span
-        var tooltip_text = $('<span></span>').text(origin.attr('data-tooltip'));
+        // Get attributes.
+        var allowHtml,
+            tooltipDelay,
+            tooltipPosition,
+            tooltipText,
+            tooltipEl,
+            backdrop;
+        var setAttributes = function() {
+          allowHtml = origin.attr('data-html') ? origin.attr('data-html') === 'true' : options.html;
+          tooltipDelay = origin.attr('data-delay');
+          tooltipDelay = (tooltipDelay === undefined || tooltipDelay === '') ?
+              options.delay : tooltipDelay;
+          tooltipPosition = origin.attr('data-position');
+          tooltipPosition = (tooltipPosition === undefined || tooltipPosition === '') ?
+              options.position : tooltipPosition;
+          tooltipText = origin.attr('data-tooltip');
+          tooltipText = (tooltipText === undefined || tooltipText === '') ?
+              options.tooltip : tooltipText;
+        };
+        setAttributes();
 
-        // Create tooltip
-        var newTooltip = $('<div></div>');
-        newTooltip.addClass('material-tooltip').append(tooltip_text)
-          .appendTo($('body'))
-          .attr('id', tooltipId);
+        var renderTooltipEl = function() {
+          var tooltip = $('<div class="material-tooltip"></div>');
 
-        var backdrop = $('<div></div>').addClass('backdrop');
-        backdrop.appendTo(newTooltip);
-        backdrop.css({ top: 0, left:0 });
+          // Create Text span
+          if (allowHtml) {
+            tooltipText = $('<span></span>').html(tooltipText);
+          } else{
+            tooltipText = $('<span></span>').text(tooltipText);
+          }
 
+          // Create tooltip
+          tooltip.append(tooltipText)
+            .appendTo($('body'))
+            .attr('id', tooltipId);
 
-      //Destroy previously binded events
-      origin.off('mouseenter.tooltip mouseleave.tooltip');
-      // Mouse In
-      var started = false, timeoutRef;
-      origin.on({
-        'mouseenter.tooltip': function(e) {
-          var tooltip_delay = origin.attr('data-delay');
-          tooltip_delay = (tooltip_delay === undefined || tooltip_delay === '') ?
-              options.delay : tooltip_delay;
-          timeoutRef = setTimeout(function(){
+          // Create backdrop
+          backdrop = $('<div class="backdrop"></div>');
+          backdrop.appendTo(tooltip);
+          backdrop.css({ top: 0, left:0 });
+          return tooltip;
+        };
+        tooltipEl = renderTooltipEl();
+
+        // Destroy previously binded events
+        origin.off('mouseenter.tooltip mouseleave.tooltip');
+        // Mouse In
+        var started = false, timeoutRef;
+        origin.on({'mouseenter.tooltip': function(e) {
+          var showTooltip = function() {
+            setAttributes();
             started = true;
-            newTooltip.velocity('stop');
+            tooltipEl.velocity('stop');
             backdrop.velocity('stop');
-            newTooltip.css({ display: 'block', left: '0px', top: '0px' });
-
-            // Set Tooltip text
-            newTooltip.children('span').text(origin.attr('data-tooltip'));
+            tooltipEl.css({ display: 'block', left: '0px', top: '0px' });
 
             // Tooltip positioning
             var originWidth = origin.outerWidth();
             var originHeight = origin.outerHeight();
-            var tooltipPosition =  origin.attr('data-position');
-            var tooltipHeight = newTooltip.outerHeight();
-            var tooltipWidth = newTooltip.outerWidth();
+
+            var tooltipHeight = tooltipEl.outerHeight();
+            var tooltipWidth = tooltipEl.outerWidth();
             var tooltipVerticalMovement = '0px';
             var tooltipHorizontalMovement = '0px';
             var scale_factor = 8;
@@ -1499,7 +1525,7 @@ $(document).ready(function(){
             }
 
             // Set tooptip css placement
-            newTooltip.css({
+            tooltipEl.css({
               top: newCoordinates.y,
               left: newCoordinates.x
             });
@@ -1515,14 +1541,14 @@ $(document).ready(function(){
                 scale_factor = 6;
             }
 
-            newTooltip.velocity({ marginTop: tooltipVerticalMovement, marginLeft: tooltipHorizontalMovement}, { duration: 350, queue: false })
+            tooltipEl.velocity({ marginTop: tooltipVerticalMovement, marginLeft: tooltipHorizontalMovement}, { duration: 350, queue: false })
               .velocity({opacity: 1}, {duration: 300, delay: 50, queue: false});
             backdrop.css({ display: 'block' })
               .velocity({opacity:1},{duration: 55, delay: 0, queue: false})
               .velocity({scale: scale_factor}, {duration: 300, delay: 0, queue: false, easing: 'easeInOutQuad'});
+          };
 
-
-          }, tooltip_delay); // End Interval
+          timeoutRef = setTimeout(showTooltip, tooltipDelay); // End Interval
 
         // Mouse Out
         },
@@ -1533,15 +1559,15 @@ $(document).ready(function(){
 
           // Animate back
           setTimeout(function() {
-            if (started != true) {
-              newTooltip.velocity({
+            if (started !== true) {
+              tooltipEl.velocity({
                 opacity: 0, marginTop: 0, marginLeft: 0}, { duration: 225, queue: false});
               backdrop.velocity({opacity: 0, scale: 1}, {
                 duration:225,
                 queue: false,
                 complete: function(){
                   backdrop.css('display', 'none');
-                  newTooltip.css('display', 'none');
+                  tooltipEl.css('display', 'none');
                   started = false;}
               });
             }
@@ -1552,7 +1578,7 @@ $(document).ready(function(){
   };
 
   var repositionWithinScreen = function(x, y, width, height) {
-    var newX = x
+    var newX = x;
     var newY = y;
 
     if (newX < 0) {
@@ -2053,7 +2079,7 @@ $(document).ready(function(){
   var methods = {
     init : function(options) {
       var defaults = {
-        menuWidth: 240,
+        menuWidth: 300,
         edge: 'left',
         closeOnClick: false
       };
@@ -2064,7 +2090,7 @@ $(document).ready(function(){
         var menu_id = $("#"+ $this.attr('data-activates'));
 
         // Set to width
-        if (options.menuWidth != 240) {
+        if (options.menuWidth != 300) {
           menu_id.css('width', options.menuWidth);
         }
 
@@ -3713,9 +3739,6 @@ $(document).ready(function(){
           $(this).find('.card-reveal').css({ display: 'block'}).velocity("stop", false).velocity({translateY: '-100%'}, {duration: 300, queue: false, easing: 'easeInOutQuad'});
         }
       }
-
-      $('.card-reveal').closest('.card').css('overflow', 'hidden');
-
     });
 
   });
@@ -6998,7 +7021,8 @@ Picker.extend( 'pickadate', DatePicker )
         dist: -100, // zoom scale TODO: make this more intuitive as an option
         shift: 0, // spacing for center image
         padding: 0, // Padding between non center items
-        full_width: false // Change to full width styles
+        full_width: false, // Change to full width styles
+        indicators: false // Toggle indicators
       };
       options = $.extend(defaults, options);
 
@@ -7007,9 +7031,13 @@ Picker.extend( 'pickadate', DatePicker )
         var images, offset, center, pressed, dim, count,
             reference, referenceY, amplitude, target, velocity,
             xform, frame, timestamp, ticker, dragged, vertical_dragged;
+        var $indicators = $('<ul class="indicators"></ul>');
+
 
         // Initialize
         var view = $(this);
+        var showIndicators = view.attr('data-indicators') || options.indicators;
+
         // Don't double initialize.
         if (view.hasClass('initialized')) {
           // Redraw carousel.
@@ -7020,10 +7048,22 @@ Picker.extend( 'pickadate', DatePicker )
         // Options
         if (options.full_width) {
           options.dist = 0;
-          imageHeight = view.find('.carousel-item img').first().load(function(){
-            view.css('height', $(this).height());
-          });
+          var firstImage = view.find('.carousel-item img').first();
+          if (firstImage.length) {
+            imageHeight = firstImage.load(function(){
+              view.css('height', $(this).height());
+            });
+          } else {
+            imageHeight = view.find('.carousel-item').first().height();
+            view.css('height', imageHeight);
+          }
+
+          // Offset fixed items when indicators.
+          if (showIndicators) {
+            view.find('.carousel-fixed-item').addClass('with-indicators');
+          }
         }
+
 
         view.addClass('initialized');
         pressed = false;
@@ -7032,10 +7072,28 @@ Picker.extend( 'pickadate', DatePicker )
         item_width = view.find('.carousel-item').first().innerWidth();
         dim = item_width * 2 + options.padding;
 
-        view.find('.carousel-item').each(function () {
+        view.find('.carousel-item').each(function (i) {
           images.push($(this)[0]);
+          if (showIndicators) {
+            var $indicator = $('<li class="indicator-item"></li>');
+
+            // Add active to first by default.
+            if (i === 0) {
+              $indicator.addClass('active');
+            }
+
+            // Handle clicks on indicators.
+            $indicator.click(function () {
+              var index = $(this).index();
+              cycleTo(index);
+            });
+            $indicators.append($indicator);
+          }
         });
 
+        if (showIndicators) {
+          view.append($indicators);
+        }
         count = images.length;
 
 
@@ -7048,6 +7106,7 @@ Picker.extend( 'pickadate', DatePicker )
           view[0].addEventListener('mousedown', tap);
           view[0].addEventListener('mousemove', drag);
           view[0].addEventListener('mouseup', release);
+          view[0].addEventListener('mouseleave', release);
           view[0].addEventListener('click', click);
         }
 
@@ -7089,6 +7148,16 @@ Picker.extend( 'pickadate', DatePicker )
             alignment += 'translateY(' + (view[0].clientHeight - item_width) / 2 + 'px)';
           } else {
             alignment = 'translateX(0)';
+          }
+
+          // Set indicator active
+          if (showIndicators) {
+            var diff = (center % count);
+            var activeIndicator = $indicators.find('.indicator-item.active');
+            if (activeIndicator.index() !== diff) {
+              activeIndicator.removeClass('active');
+              $indicators.find('.indicator-item').eq(diff).addClass('active');
+            }
           }
 
           // center
@@ -7187,21 +7256,34 @@ Picker.extend( 'pickadate', DatePicker )
             var clickedIndex = $(e.target).closest('.carousel-item').index();
             var diff = (center % count) - clickedIndex;
 
-            // Account for wraparound.
-            if (diff < 0) {
-              if (Math.abs(diff + count) < Math.abs(diff)) { diff += count; }
-
-            } else if (diff > 0) {
-              if (Math.abs(diff - count) < diff) { diff -= count; }
+            // Disable clicks if carousel was shifted by click
+            if (diff !== 0) {
+              e.preventDefault();
+              e.stopPropagation();
             }
+            
+            cycleTo(clickedIndex);
+          }
+        }
 
-            // Call prev or next accordingly.
-            if (diff < 0) {
-              $(this).trigger('carouselNext', [Math.abs(diff)]);
+        function cycleTo(n) {
+          var diff = (center % count) - n;
 
-            } else if (diff > 0) {
-              $(this).trigger('carouselPrev', [diff]);
-            }
+          // Account for wraparound.
+          if (diff < 0) {
+            if (Math.abs(diff + count) < Math.abs(diff)) { diff += count; }
+
+          } else if (diff > 0) {
+            if (Math.abs(diff - count) < diff) { diff -= count; }
+          }
+
+          // Call prev or next accordingly.
+          if (diff < 0) {
+            
+            view.trigger('carouselNext', [Math.abs(diff)]);
+
+          } else if (diff > 0) {
+            view.trigger('carouselPrev', [diff]);
           }
         }
 
@@ -7256,7 +7338,11 @@ Picker.extend( 'pickadate', DatePicker )
         }
 
         function release(e) {
-          pressed = false;
+          if (pressed) {
+            pressed = false;
+          } else {
+            return;
+          }
 
           clearInterval(ticker);
           target = offset;
@@ -7269,8 +7355,10 @@ Picker.extend( 'pickadate', DatePicker )
           timestamp = Date.now();
           requestAnimationFrame(autoScroll);
 
-          e.preventDefault();
-          e.stopPropagation();
+          if (dragged) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
           return false;
         }
 
@@ -7292,6 +7380,7 @@ Picker.extend( 'pickadate', DatePicker )
         scroll(offset);
 
         $(this).on('carouselNext', function(e, n) {
+          
           if (n === undefined) {
             n = 1;
           }
@@ -7315,6 +7404,13 @@ Picker.extend( 'pickadate', DatePicker )
           }
         });
 
+        $(this).on('carouselSet', function(e, n) {
+          if (n === undefined) {
+            n = 0;
+          }
+          cycleTo(n);
+        });
+
       });
 
 
@@ -7326,6 +7422,9 @@ Picker.extend( 'pickadate', DatePicker )
     prev : function(n) {
       $(this).trigger('carouselPrev', [n]);
     },
+    set : function(n) {
+      $(this).trigger('carouselSet', [n]);
+    }
   };
 
 
