@@ -313,7 +313,9 @@ if ($) {
 ;(function ($) {
   $.fn.collapsible = function(options) {
     var defaults = {
-        accordion: undefined
+      accordion: undefined,
+      onOpen: undefined,
+      onClose: undefined
     };
 
     options = $.extend(defaults, options);
@@ -328,22 +330,22 @@ if ($) {
       var collapsible_type = $this.data("collapsible");
 
       // Turn off any existing event handlers
-       $this.off('click.collapse', '> li > .collapsible-header');
-       $panel_headers.off('click.collapse');
+      $this.off('click.collapse', '> li > .collapsible-header');
+      $panel_headers.off('click.collapse');
 
 
-       /****************
-       Helper Functions
-       ****************/
+      /****************
+      Helper Functions
+      ****************/
 
       // Accordion Open
       function accordionOpen(object) {
         $panel_headers = $this.find('> li > .collapsible-header');
         if (object.hasClass('active')) {
-            object.parent().addClass('active');
+          object.parent().addClass('active');
         }
         else {
-            object.parent().removeClass('active');
+          object.parent().removeClass('active');
         }
         if (object.parent().hasClass('active')){
           object.siblings('.collapsible-body').stop(true,false).slideDown({ duration: 350, easing: "easeOutQuart", queue: false, complete: function() {$(this).css('height', '');}});
@@ -353,31 +355,61 @@ if ($) {
         }
 
         $panel_headers.not(object).removeClass('active').parent().removeClass('active');
-        $panel_headers.not(object).parent().children('.collapsible-body').stop(true,false).slideUp(
-          {
-            duration: 350,
-            easing: "easeOutQuart",
-            queue: false,
-            complete:
-              function() {
-                $(this).css('height', '');
-              }
-          });
+
+        // Close previously open accordion elements.
+        $panel_headers.not(object).parent().children('.collapsible-body').stop(true,false).each(function() {
+          if ($(this).is(':visible')) {
+            $(this).slideUp({
+              duration: 350,
+              easing: "easeOutQuart",
+              queue: false,
+              complete:
+                function() {
+                  $(this).css('height', '');
+                  execCallbacks($(this).siblings('.collapsible-header'));
+                }
+            });
+          }
+        });
       }
 
       // Expandable Open
       function expandableOpen(object) {
         if (object.hasClass('active')) {
-            object.parent().addClass('active');
+          object.parent().addClass('active');
         }
         else {
-            object.parent().removeClass('active');
+          object.parent().removeClass('active');
         }
         if (object.parent().hasClass('active')){
           object.siblings('.collapsible-body').stop(true,false).slideDown({ duration: 350, easing: "easeOutQuart", queue: false, complete: function() {$(this).css('height', '');}});
         }
-        else{
+        else {
           object.siblings('.collapsible-body').stop(true,false).slideUp({ duration: 350, easing: "easeOutQuart", queue: false, complete: function() {$(this).css('height', '');}});
+        }
+      }
+
+      // Open collapsible. object: .collapsible-header
+      function collapsibleOpen(object) {
+        if (options.accordion || collapsible_type === "accordion" || collapsible_type === undefined) { // Handle Accordion
+          accordionOpen(object);
+        } else { // Handle Expandables
+          expandableOpen(object);
+        }
+
+        execCallbacks(object);
+      }
+
+      // Handle callbacks
+      function execCallbacks(object) {
+        if (object.hasClass('active')) {
+          if (typeof(options.onOpen) === "function") {
+            options.onOpen.call(this, object.parent());
+          }
+        } else {
+          if (typeof(options.onClose) === "function") {
+            options.onClose.call(this, object.parent());
+          }
         }
       }
 
@@ -409,8 +441,7 @@ if ($) {
 
       // Add click handler to only direct collapsible header children
       $this.on('click.collapse', '> li > .collapsible-header', function(e) {
-        var $header = $(this),
-            element = $(e.target);
+        var element = $(e.target);
 
         if (isChildrenOfPanelHeader(element)) {
           element = getPanelHeader(element);
@@ -418,25 +449,17 @@ if ($) {
 
         element.toggleClass('active');
 
-        if (options.accordion || collapsible_type === "accordion" || collapsible_type === undefined) { // Handle Accordion
-          accordionOpen(element);
-        } else { // Handle Expandables
-          expandableOpen(element);
-
-          if ($header.hasClass('active')) {
-            expandableOpen($header);
-          }
-        }
+        collapsibleOpen(element);
       });
 
+
       // Open first active
-      var $panel_headers = $this.find('> li > .collapsible-header');
       if (options.accordion || collapsible_type === "accordion" || collapsible_type === undefined) { // Handle Accordion
-        accordionOpen($panel_headers.filter('.active').first());
-      }
-      else { // Handle Expandables
+        collapsibleOpen($panel_headers.filter('.active').first());
+
+      } else { // Handle Expandables
         $panel_headers.filter('.active').each(function() {
-          expandableOpen($(this));
+          collapsibleOpen($(this));
         });
       }
 
@@ -485,7 +508,7 @@ if ($) {
 
     this.each(function(){
       var origin = $(this);
-      var options = $.extend({}, defaults, options);
+      var curr_options = $.extend({}, defaults, options);
       var isFocused = false;
 
       // Dropdown menu
@@ -493,21 +516,21 @@ if ($) {
 
       function updateOptions() {
         if (origin.data('induration') !== undefined)
-          options.inDuration = origin.data('induration');
+          curr_options.inDuration = origin.data('induration');
         if (origin.data('outduration') !== undefined)
-          options.outDuration = origin.data('outduration');
+          curr_options.outDuration = origin.data('outduration');
         if (origin.data('constrainwidth') !== undefined)
-          options.constrain_width = origin.data('constrainwidth');
+          curr_options.constrain_width = origin.data('constrainwidth');
         if (origin.data('hover') !== undefined)
-          options.hover = origin.data('hover');
+          curr_options.hover = origin.data('hover');
         if (origin.data('gutter') !== undefined)
-          options.gutter = origin.data('gutter');
+          curr_options.gutter = origin.data('gutter');
         if (origin.data('beloworigin') !== undefined)
-          options.belowOrigin = origin.data('beloworigin');
+          curr_options.belowOrigin = origin.data('beloworigin');
         if (origin.data('alignment') !== undefined)
-          options.alignment = origin.data('alignment');
+          curr_options.alignment = origin.data('alignment');
         if (origin.data('stoppropagation') !== undefined)
-          options.stopPropagation = origin.data('stoppropagation');
+          curr_options.stopPropagation = origin.data('stoppropagation');
       }
 
       updateOptions();
@@ -533,7 +556,7 @@ if ($) {
         origin.addClass('active');
 
         // Constrain width
-        if (options.constrain_width === true) {
+        if (curr_options.constrain_width === true) {
           activates.css('width', origin.outerWidth());
 
         } else {
@@ -545,21 +568,27 @@ if ($) {
         var originHeight = origin.innerHeight();
         var offsetLeft = origin.offset().left;
         var offsetTop = origin.offset().top - $(window).scrollTop();
-        var currAlignment = options.alignment;
+        var currAlignment = curr_options.alignment;
         var gutterSpacing = 0;
         var leftPosition = 0;
 
         // Below Origin
         var verticalOffset = 0;
-        if (options.belowOrigin === true) {
+        if (curr_options.belowOrigin === true) {
           verticalOffset = originHeight;
         }
 
         // Check for scrolling positioned container.
-        var scrollOffset = 0;
+        var scrollYOffset = 0;
+        var scrollXOffset = 0;
         var wrapper = origin.parent();
-        if (!wrapper.is('body') && wrapper[0].scrollHeight > wrapper[0].clientHeight) {
-          scrollOffset = wrapper[0].scrollTop;
+        if (!wrapper.is('body')) {
+          if (wrapper[0].scrollHeight > wrapper[0].clientHeight) {
+            scrollYOffset = wrapper[0].scrollTop;
+          }
+          if (wrapper[0].scrollWidth > wrapper[0].clientWidth) {
+            scrollXOffset = wrapper[0].scrollLeft;
+          }
         }
 
 
@@ -588,20 +617,20 @@ if ($) {
 
         // Handle edge alignment
         if (currAlignment === 'left') {
-          gutterSpacing = options.gutter;
+          gutterSpacing = curr_options.gutter;
           leftPosition = origin.position().left + gutterSpacing;
         }
         else if (currAlignment === 'right') {
           var offsetRight = origin.position().left + origin.outerWidth() - activates.outerWidth();
-          gutterSpacing = -options.gutter;
+          gutterSpacing = -curr_options.gutter;
           leftPosition =  offsetRight + gutterSpacing;
         }
 
         // Position dropdown
         activates.css({
           position: 'absolute',
-          top: origin.position().top + verticalOffset + scrollOffset,
-          left: leftPosition
+          top: origin.position().top + verticalOffset + scrollYOffset,
+          left: leftPosition + scrollXOffset
         });
 
 
@@ -609,26 +638,26 @@ if ($) {
         activates.stop(true, true).css('opacity', 0)
           .slideDown({
             queue: false,
-            duration: options.inDuration,
+            duration: curr_options.inDuration,
             easing: 'easeOutCubic',
             complete: function() {
               $(this).css('height', '');
             }
           })
-          .animate( {opacity: 1}, {queue: false, duration: options.inDuration, easing: 'easeOutSine'});
+          .animate( {opacity: 1}, {queue: false, duration: curr_options.inDuration, easing: 'easeOutSine'});
       }
 
       function hideDropdown() {
         // Check for simultaneous focus and click events.
         isFocused = false;
-        activates.fadeOut(options.outDuration);
+        activates.fadeOut(curr_options.outDuration);
         activates.removeClass('active');
         origin.removeClass('active');
-        setTimeout(function() { activates.css('max-height', ''); }, options.outDuration);
+        setTimeout(function() { activates.css('max-height', ''); }, curr_options.outDuration);
       }
 
       // Hover
-      if (options.hover) {
+      if (curr_options.hover) {
         var open = false;
         origin.unbind('click.' + origin.attr('id'));
         // Hover handler to show dropdown
@@ -667,7 +696,7 @@ if ($) {
                  !origin.hasClass('active') &&
                  ($(e.target).closest('.dropdown-content').length === 0)) {
               e.preventDefault(); // Prevents button click from moving window
-              if (options.stopPropagation) {
+              if (curr_options.stopPropagation) {
                 e.stopPropagation();
               }
               placeDropdown('click');
@@ -706,21 +735,15 @@ if ($) {
   });
 }( jQuery ));
 ;(function($) {
-    var _stack = 0,
-    _lastID = 0,
-    _generateID = function() {
-      _lastID++;
-      return 'materialize-lean-overlay-' + _lastID;
-    };
+  var _stack = 0,
+  _lastID = 0,
+  _generateID = function() {
+    _lastID++;
+    return 'materialize-modal-overlay-' + _lastID;
+  };
 
-  $.fn.extend({
-    openModal: function(options) {
-
-      var $body = $('body');
-      var oldWidth = $body.innerWidth();
-      $body.css('overflow', 'hidden');
-      $body.width(oldWidth);
-
+  var methods = {
+    init : function(options) {
       var defaults = {
         opacity: 0.5,
         in_duration: 350,
@@ -731,171 +754,169 @@ if ($) {
         starting_top: '4%',
         ending_top: '10%'
       };
-      var $modal = $(this);
-
-      if ($modal.hasClass('open')) {
-        return;
-      }
-
-      var overlayID = _generateID();
-      var $overlay = $('<div class="lean-overlay"></div>');
-      lStack = (++_stack);
-
-      // Store a reference of the overlay
-      $overlay.attr('id', overlayID).css('z-index', 1000 + lStack * 2);
-      $modal.data('overlay-id', overlayID).css('z-index', 1000 + lStack * 2 + 1);
-      $modal.addClass('open');
-
-      $("body").append($overlay);
 
       // Override defaults
       options = $.extend(defaults, options);
 
-      if (options.dismissible) {
-        $overlay.click(function() {
-          $modal.closeModal(options);
-        });
-        // Return on ESC
-        $(document).on('keyup.leanModal' + overlayID, function(e) {
-          if (e.keyCode === 27) {   // ESC key
-            $modal.closeModal(options);
-          }
-        });
-      }
+      return this.each(function() {
+        var $modal = $(this);
+        var modal_id = $(this).attr("id") || '#' + $(this).data('target');
 
-      $modal.find(".modal-close").on('click.close', function(e) {
-        $modal.closeModal(options);
-      });
+        var closeModal = function() {
+          var overlayID = $modal.data('overlay-id');
+          var $overlay = $('#' + overlayID);
+          $modal.removeClass('open');
 
-      $overlay.css({ display : "block", opacity : 0 });
+          // Enable scrolling
+          $('body').css({
+            overflow: '',
+            width: ''
+          });
 
-      $modal.css({
-        display : "block",
-        opacity: 0
-      });
+          $modal.find('.modal-close').off('click.close');
+          $(document).off('keyup.modal' + overlayID);
 
-      $overlay.velocity({opacity: options.opacity}, {duration: options.in_duration, queue: false, ease: "easeOutCubic"});
-      $modal.data('associated-overlay', $overlay[0]);
-
-      // Define Bottom Sheet animation
-      if ($modal.hasClass('bottom-sheet')) {
-        $modal.velocity({bottom: "0", opacity: 1}, {
-          duration: options.in_duration,
-          queue: false,
-          ease: "easeOutCubic",
-          // Handle modal ready callback
-          complete: function() {
-            if (typeof(options.ready) === "function") {
-              options.ready();
-            }
-          }
-        });
-      }
-      else {
-        $.Velocity.hook($modal, "scaleX", 0.7);
-        $modal.css({ top: options.starting_top });
-        $modal.velocity({top: options.ending_top, opacity: 1, scaleX: '1'}, {
-          duration: options.in_duration,
-          queue: false,
-          ease: "easeOutCubic",
-          // Handle modal ready callback
-          complete: function() {
-            if (typeof(options.ready) === "function") {
-              options.ready();
-            }
-          }
-        });
-      }
+          $overlay.velocity( { opacity: 0}, {duration: options.out_duration, queue: false, ease: "easeOutQuart"});
 
 
-    }
-  });
+          // Define Bottom Sheet animation
+          var exitVelocityOptions = {
+            duration: options.out_duration,
+            queue: false,
+            ease: "easeOutCubic",
+            // Handle modal ready callback
+            complete: function() {
+              $(this).css({display:"none"});
 
-  $.fn.extend({
-    closeModal: function(options) {
-      var defaults = {
-        out_duration: 250,
-        complete: undefined
-      };
-      var $modal = $(this);
-      var overlayID = $modal.data('overlay-id');
-      var $overlay = $('#' + overlayID);
-      $modal.removeClass('open');
-
-      options = $.extend(defaults, options);
-
-      // Enable scrolling
-      $('body').css({
-        overflow: '',
-        width: ''
-      });
-
-      $modal.find('.modal-close').off('click.close');
-      $(document).off('keyup.leanModal' + overlayID);
-
-      $overlay.velocity( { opacity: 0}, {duration: options.out_duration, queue: false, ease: "easeOutQuart"});
-
-
-      // Define Bottom Sheet animation
-      if ($modal.hasClass('bottom-sheet')) {
-        $modal.velocity({bottom: "-100%", opacity: 0}, {
-          duration: options.out_duration,
-          queue: false,
-          ease: "easeOutCubic",
-          // Handle modal ready callback
-          complete: function() {
-            $overlay.css({display:"none"});
-
-            // Call complete callback
-            if (typeof(options.complete) === "function") {
-              options.complete();
-            }
-            $overlay.remove();
-            _stack--;
-          }
-        });
-      }
-      else {
-        $modal.velocity(
-          { top: options.starting_top, opacity: 0, scaleX: 0.7}, {
-          duration: options.out_duration,
-          complete:
-            function() {
-
-              $(this).css('display', 'none');
               // Call complete callback
               if (typeof(options.complete) === "function") {
-                options.complete();
+                options.complete.call(this, $modal);
               }
               $overlay.remove();
               _stack--;
             }
+          };
+          if ($modal.hasClass('bottom-sheet')) {
+            $modal.velocity({bottom: "-100%", opacity: 0}, exitVelocityOptions);
           }
-        );
-      }
-    }
-  });
+          else {
+            $modal.velocity(
+              { top: options.starting_top, opacity: 0, scaleX: 0.7},
+              exitVelocityOptions
+            );
+          }
+        };
 
-  $.fn.extend({
-    leanModal: function(option) {
-      return this.each(function() {
+        var openModal = function($trigger) {
+          var $body = $('body');
+          var oldWidth = $body.innerWidth();
+          $body.css('overflow', 'hidden');
+          $body.width(oldWidth);
 
-        var defaults = {
-          starting_top: '4%'
-        },
-        // Override defaults
-        options = $.extend(defaults, option);
+          if ($modal.hasClass('open')) {
+            return;
+          }
+
+          var overlayID = _generateID();
+          var $overlay = $('<div class="modal-overlay"></div>');
+          lStack = (++_stack);
+
+          // Store a reference of the overlay
+          $overlay.attr('id', overlayID).css('z-index', 1000 + lStack * 2);
+          $modal.data('overlay-id', overlayID).css('z-index', 1000 + lStack * 2 + 1);
+          $modal.addClass('open');
+
+          $("body").append($overlay);
+
+          if (options.dismissible) {
+            $overlay.click(function() {
+              closeModal();
+            });
+            // Return on ESC
+            $(document).on('keyup.modal' + overlayID, function(e) {
+              if (e.keyCode === 27) {   // ESC key
+                closeModal();
+              }
+            });
+          }
+
+          $modal.find(".modal-close").on('click.close', function(e) {
+            closeModal();
+          });
+
+          $overlay.css({ display : "block", opacity : 0 });
+
+          $modal.css({
+            display : "block",
+            opacity: 0
+          });
+
+          $overlay.velocity({opacity: options.opacity}, {duration: options.in_duration, queue: false, ease: "easeOutCubic"});
+          $modal.data('associated-overlay', $overlay[0]);
+
+          // Define Bottom Sheet animation
+          var enterVelocityOptions = {
+            duration: options.in_duration,
+            queue: false,
+            ease: "easeOutCubic",
+            // Handle modal ready callback
+            complete: function() {
+              if (typeof(options.ready) === "function") {
+                options.ready.call(this, $modal, $trigger);
+              }
+            }
+          };
+          if ($modal.hasClass('bottom-sheet')) {
+            $modal.velocity({bottom: "0", opacity: 1}, enterVelocityOptions);
+          }
+          else {
+            $.Velocity.hook($modal, "scaleX", 0.7);
+            $modal.css({ top: options.starting_top });
+            $modal.velocity({top: options.ending_top, opacity: 1, scaleX: '1'}, enterVelocityOptions);
+          }
+
+        };
+
+        // Reset handlers
+        $(document).off('click.modalTrigger', 'a[href="#' + modal_id + '"], [data-target="' + modal_id + '"]');
+        $(this).off('openModal');
+        $(this).off('closeModal');
 
         // Close Handlers
-        $(this).click(function(e) {
+        $(document).on('click.modalTrigger', 'a[href="#' + modal_id + '"], [data-target="' + modal_id + '"]', function(e) {
           options.starting_top = ($(this).offset().top - $(window).scrollTop()) /1.15;
-          var modal_id = $(this).attr("href") || '#' + $(this).data('target');
-          $(modal_id).openModal(options);
+          openModal($(this));
           e.preventDefault();
         }); // done set on click
+
+        $(this).on('openModal', function() {
+          var modal_id = $(this).attr("href") || '#' + $(this).data('target');
+          openModal();
+        });
+
+        $(this).on('closeModal', function() {
+          closeModal();
+        });
       }); // done return
+    },
+    open : function() {
+      $(this).trigger('openModal');
+    },
+    close : function() {
+      $(this).trigger('closeModal');
     }
-  });
+  };
+
+  $.fn.modal = function(methodOrOptions) {
+    if ( methods[methodOrOptions] ) {
+      return methods[ methodOrOptions ].apply( this, Array.prototype.slice.call( arguments, 1 ));
+    } else if ( typeof methodOrOptions === 'object' || ! methodOrOptions ) {
+      // Default to "init"
+      return methods.init.apply( this, arguments );
+    } else {
+      $.error( 'Method ' +  methodOrOptions + ' does not exist on jQuery.modal' );
+    }
+  };
 })(jQuery);
 ;(function ($) {
 
@@ -1207,7 +1228,7 @@ $(document).ready(function(){
         $this.children("img").one("load", function() {
           updateParallax(true);
         }).each(function() {
-          if(this.complete) $(this).load();
+          if (this.complete) $(this).trigger("load");
         });
 
         $(window).scroll(function() {
@@ -1223,7 +1244,8 @@ $(document).ready(function(){
       });
 
     };
-}( jQuery ));;(function ($) {
+}( jQuery ));
+;(function ($) {
 
   var methods = {
     init : function(options) {
@@ -1239,11 +1261,22 @@ $(document).ready(function(){
       var $this = $(this),
           window_width = $(window).width();
 
-      $this.width('100%');
       var $active, $content, $links = $this.find('li.tab a'),
           $tabs_width = $this.width(),
           $tab_width = Math.max($tabs_width, $this[0].scrollWidth) / $links.length,
           $index = 0;
+
+      // Finds right attribute for indicator based on active tab.
+      // el: jQuery Object
+      var calcRightPos = function(el) {
+        return $tabs_width - el.position().left - el.outerWidth() - $this.scrollLeft();
+      };
+
+      // Finds left attribute for indicator based on active tab.
+      // el: jQuery Object
+      var calcLeftPos = function(el) {
+        return el.position().left + $this.scrollLeft();
+      };
 
       // If the location.hash matches one of the links, use that as the active tab.
       $active = $($links.filter('[href="'+location.hash+'"]'));
@@ -1270,8 +1303,12 @@ $(document).ready(function(){
       $this.append('<div class="indicator"></div>');
       var $indicator = $this.find('.indicator');
       if ($this.is(":visible")) {
-        $indicator.css({"right": $tabs_width - (($index + 1) * $tab_width)});
-        $indicator.css({"left": $index * $tab_width});
+        // $indicator.css({"right": $tabs_width - (($index + 1) * $tab_width)});
+        // $indicator.css({"left": $index * $tab_width});
+        setTimeout(function() {
+          $indicator.css({"right": calcRightPos($active) });
+          $indicator.css({"left": calcLeftPos($active) });
+        }, 0);
       }
       $(window).resize(function () {
         $tabs_width = $this.width();
@@ -1280,8 +1317,8 @@ $(document).ready(function(){
           $index = 0;
         }
         if ($tab_width !== 0 && $tabs_width !== 0) {
-          $indicator.css({"right": $tabs_width - (($index + 1) * $tab_width)});
-          $indicator.css({"left": $index * $tab_width});
+          $indicator.css({"right": calcRightPos($active) });
+          $indicator.css({"left": calcLeftPos($active) });
         }
       });
 
@@ -1316,6 +1353,7 @@ $(document).ready(function(){
         $active = $(this);
         $content = $(this.hash);
         $links = $this.find('li.tab a');
+        var activeRect = $active.position();
 
         // Make the tab active.
         $active.addClass('active');
@@ -1335,14 +1373,14 @@ $(document).ready(function(){
         }
 
         // Update indicator
-        if (($index - $prev_index) >= 0) {
-          $indicator.velocity({"right": $tabs_width - (($index + 1) * $tab_width)}, { duration: 300, queue: false, easing: 'easeOutQuad'});
-          $indicator.velocity({"left": $index * $tab_width}, {duration: 300, queue: false, easing: 'easeOutQuad', delay: 90});
 
-        }
-        else {
-          $indicator.velocity({"left": $index * $tab_width}, { duration: 300, queue: false, easing: 'easeOutQuad'});
-          $indicator.velocity({"right": $tabs_width - (($index + 1) * $tab_width)}, {duration: 300, queue: false, easing: 'easeOutQuad', delay: 90});
+        if (($index - $prev_index) >= 0) {
+          $indicator.velocity({"right": calcRightPos($active) }, { duration: 300, queue: false, easing: 'easeOutQuad'});
+          $indicator.velocity({"left": calcLeftPos($active) }, {duration: 300, queue: false, easing: 'easeOutQuad', delay: 90});
+
+        } else {
+          $indicator.velocity({"left": calcLeftPos($active) }, { duration: 300, queue: false, easing: 'easeOutQuad'});
+          $indicator.velocity({"right": calcRightPos($active) }, {duration: 300, queue: false, easing: 'easeOutQuad', delay: 90});
         }
 
         // Prevent the anchor's default click action
@@ -1363,7 +1401,7 @@ $(document).ready(function(){
       // Default to "init"
       return methods.init.apply( this, arguments );
     } else {
-      $.error( 'Method ' +  methodOrOptions + ' does not exist on jQuery.tooltip' );
+      $.error( 'Method ' +  methodOrOptions + ' does not exist on jQuery.tabs' );
     }
   };
 
@@ -1398,6 +1436,12 @@ $(document).ready(function(){
       return this.each(function() {
         var tooltipId = Materialize.guid();
         var origin = $(this);
+
+        // Destroy old tooltip
+        if (origin.attr('data-tooltip-id')) {
+          $('#' + origin.attr('data-tooltip-id')).remove();
+        }
+
         origin.attr('data-tooltip-id', tooltipId);
 
         // Get attributes.
@@ -1439,7 +1483,6 @@ $(document).ready(function(){
           // Create backdrop
           backdrop = $('<div class="backdrop"></div>');
           backdrop.appendTo(tooltip);
-          backdrop.css({ top: 0, left:0 });
           return tooltip;
         };
         tooltipEl = renderTooltipEl();
@@ -1464,7 +1507,8 @@ $(document).ready(function(){
             var tooltipWidth = tooltipEl.outerWidth();
             var tooltipVerticalMovement = '0px';
             var tooltipHorizontalMovement = '0px';
-            var scale_factor = 8;
+            var scaleXFactor = 8;
+            var scaleYFactor = 8;
             var targetTop, targetLeft, newCoordinates;
 
             if (tooltipPosition === "top") {
@@ -1475,8 +1519,10 @@ $(document).ready(function(){
 
               tooltipVerticalMovement = '-10px';
               backdrop.css({
+                bottom: 0,
+                left: 0,
                 borderRadius: '14px 14px 0 0',
-                transformOrigin: '50% 90%',
+                transformOrigin: '50% 100%',
                 marginTop: tooltipHeight,
                 marginLeft: (tooltipWidth/2) - (backdrop.width()/2)
               });
@@ -1489,6 +1535,8 @@ $(document).ready(function(){
 
               tooltipHorizontalMovement = '-10px';
               backdrop.css({
+                top: '-7px',
+                right: 0,
                 width: '14px',
                 height: '14px',
                 borderRadius: '14px 0 0 14px',
@@ -1505,6 +1553,8 @@ $(document).ready(function(){
 
               tooltipHorizontalMovement = '+10px';
               backdrop.css({
+                top: '-7px',
+                left: 0,
                 width: '14px',
                 height: '14px',
                 borderRadius: '0 14px 14px 0',
@@ -1520,6 +1570,8 @@ $(document).ready(function(){
               newCoordinates = repositionWithinScreen(targetLeft, targetTop, tooltipWidth, tooltipHeight);
               tooltipVerticalMovement = '+10px';
               backdrop.css({
+                top: 0,
+                left: 0,
                 marginLeft: (tooltipWidth/2) - (backdrop.width()/2)
               });
             }
@@ -1531,21 +1583,14 @@ $(document).ready(function(){
             });
 
             // Calculate Scale to fill
-            scale_factor = tooltipWidth / 8;
-            if (scale_factor < 8) {
-              scale_factor = 8;
-            }
-            if (tooltipPosition === "right" || tooltipPosition === "left") {
-              scale_factor = tooltipWidth / 10;
-              if (scale_factor < 6)
-                scale_factor = 6;
-            }
+            scaleXFactor = Math.SQRT2 * tooltipWidth / parseInt(backdrop.css('width'));
+            scaleYFactor = Math.SQRT2 * tooltipHeight / parseInt(backdrop.css('height'));
 
             tooltipEl.velocity({ marginTop: tooltipVerticalMovement, marginLeft: tooltipHorizontalMovement}, { duration: 350, queue: false })
               .velocity({opacity: 1}, {duration: 300, delay: 50, queue: false});
             backdrop.css({ display: 'block' })
               .velocity({opacity:1},{duration: 55, delay: 0, queue: false})
-              .velocity({scale: scale_factor}, {duration: 300, delay: 0, queue: false, easing: 'easeInOutQuad'});
+              .velocity({scaleX: scaleXFactor, scaleY: scaleYFactor}, {duration: 300, delay: 0, queue: false, easing: 'easeInOutQuad'});
           };
 
           timeoutRef = setTimeout(showTooltip, tooltipDelay); // End Interval
@@ -1562,7 +1607,7 @@ $(document).ready(function(){
             if (started !== true) {
               tooltipEl.velocity({
                 opacity: 0, marginTop: 0, marginLeft: 0}, { duration: 225, queue: false});
-              backdrop.velocity({opacity: 0, scale: 1}, {
+              backdrop.velocity({opacity: 0, scaleX: 1, scaleY: 1}, {
                 duration:225,
                 queue: false,
                 complete: function(){
@@ -2081,7 +2126,8 @@ $(document).ready(function(){
       var defaults = {
         menuWidth: 300,
         edge: 'left',
-        closeOnClick: false
+        closeOnClick: false,
+        draggable: true
       };
       options = $.extend(defaults, options);
 
@@ -2095,17 +2141,22 @@ $(document).ready(function(){
         }
 
         // Add Touch Area
-        var dragTarget = $('<div class="drag-target"></div>');
-        $('body').append(dragTarget);
+        var $dragTarget;
+        if (options.draggable) {
+          $dragTarget = $('<div class="drag-target"></div>').attr('data-sidenav', $this.attr('data-activates'));
+          $('body').append($dragTarget);
+        } else {
+          $dragTarget = $();
+        }
 
         if (options.edge == 'left') {
           menu_id.css('transform', 'translateX(-100%)');
-          dragTarget.css({'left': 0}); // Add Touch Area
+          $dragTarget.css({'left': 0}); // Add Touch Area
         }
         else {
           menu_id.addClass('right-aligned') // Change text-alignment to right
             .css('transform', 'translateX(100%)');
-          dragTarget.css({'right': 0}); // Add Touch Area
+          $dragTarget.css({'right': 0}); // Add Touch Area
         }
 
         // If fixed sidenav, bring menu out
@@ -2154,7 +2205,7 @@ $(document).ready(function(){
           });
         }
 
-        function removeMenu(restoreNav) {
+        var removeMenu = function(restoreNav) {
           panning = false;
           menuOut = false;
           // Reenable scrolling
@@ -2170,7 +2221,7 @@ $(document).ready(function(){
             } });
           if (options.edge === 'left') {
             // Reset phantom div
-            dragTarget.css({width: '', right: '', left: '0'});
+            $dragTarget.css({width: '', right: '', left: '0'});
             menu_id.velocity(
               {'translateX': '-100%'},
               { duration: 200,
@@ -2188,7 +2239,7 @@ $(document).ready(function(){
           }
           else {
             // Reset phantom div
-            dragTarget.css({width: '', right: '0', left: ''});
+            $dragTarget.css({width: '', right: '0', left: ''});
             menu_id.velocity(
               {'translateX': '100%'},
               { duration: 200,
@@ -2203,7 +2254,7 @@ $(document).ready(function(){
                 }
               });
           }
-        }
+        };
 
 
 
@@ -2211,206 +2262,218 @@ $(document).ready(function(){
         var panning = false;
         var menuOut = false;
 
-        dragTarget.on('click', function(){
-          if (menuOut) {
-            removeMenu();
-          }
-        });
-
-        dragTarget.hammer({
-          prevent_default: false
-        }).bind('pan', function(e) {
-
-          if (e.gesture.pointerType == "touch") {
-
-            var direction = e.gesture.direction;
-            var x = e.gesture.center.x;
-            var y = e.gesture.center.y;
-            var velocityX = e.gesture.velocityX;
-
-            // Disable Scrolling
-            var $body = $('body');
-            var oldWidth = $body.innerWidth();
-            $body.css('overflow', 'hidden');
-            $body.width(oldWidth);
-
-            // If overlay does not exist, create one and if it is clicked, close menu
-            if ($('#sidenav-overlay').length === 0) {
-              var overlay = $('<div id="sidenav-overlay"></div>');
-              overlay.css('opacity', 0).click( function(){
-                removeMenu();
-              });
-              $('body').append(overlay);
-            }
-
-            // Keep within boundaries
-            if (options.edge === 'left') {
-              if (x > options.menuWidth) { x = options.menuWidth; }
-              else if (x < 0) { x = 0; }
-            }
-
-            if (options.edge === 'left') {
-              // Left Direction
-              if (x < (options.menuWidth / 2)) { menuOut = false; }
-              // Right Direction
-              else if (x >= (options.menuWidth / 2)) { menuOut = true; }
-              menu_id.css('transform', 'translateX(' + (x - options.menuWidth) + 'px)');
-            }
-            else {
-              // Left Direction
-              if (x < (window.innerWidth - options.menuWidth / 2)) {
-                menuOut = true;
-              }
-              // Right Direction
-              else if (x >= (window.innerWidth - options.menuWidth / 2)) {
-               menuOut = false;
-             }
-              var rightPos = (x - options.menuWidth / 2);
-              if (rightPos < 0) {
-                rightPos = 0;
-              }
-
-              menu_id.css('transform', 'translateX(' + rightPos + 'px)');
-            }
-
-
-            // Percentage overlay
-            var overlayPerc;
-            if (options.edge === 'left') {
-              overlayPerc = x / options.menuWidth;
-              $('#sidenav-overlay').velocity({opacity: overlayPerc }, {duration: 10, queue: false, easing: 'easeOutQuad'});
-            }
-            else {
-              overlayPerc = Math.abs((x - window.innerWidth) / options.menuWidth);
-              $('#sidenav-overlay').velocity({opacity: overlayPerc }, {duration: 10, queue: false, easing: 'easeOutQuad'});
-            }
-          }
-
-        }).bind('panend', function(e) {
-
-          if (e.gesture.pointerType == "touch") {
-            var velocityX = e.gesture.velocityX;
-            var x = e.gesture.center.x;
-            var leftPos = x - options.menuWidth;
-            var rightPos = x - options.menuWidth / 2;
-            if (leftPos > 0 ) {
-              leftPos = 0;
-            }
-            if (rightPos < 0) {
-              rightPos = 0;
-            }
-            panning = false;
-
-            if (options.edge === 'left') {
-              // If velocityX <= 0.3 then the user is flinging the menu closed so ignore menuOut
-              if ((menuOut && velocityX <= 0.3) || velocityX < -0.5) {
-                // Return menu to open
-                if (leftPos !== 0) {
-                  menu_id.velocity({'translateX': [0, leftPos]}, {duration: 300, queue: false, easing: 'easeOutQuad'});
-                }
-
-                $('#sidenav-overlay').velocity({opacity: 1 }, {duration: 50, queue: false, easing: 'easeOutQuad'});
-                dragTarget.css({width: '50%', right: 0, left: ''});
-                menuOut = true;
-              }
-              else if (!menuOut || velocityX > 0.3) {
-                // Enable Scrolling
-                $('body').css({
-                  overflow: '',
-                  width: ''
-                });
-                // Slide menu closed
-                menu_id.velocity({'translateX': [-1 * options.menuWidth - 10, leftPos]}, {duration: 200, queue: false, easing: 'easeOutQuad'});
-                $('#sidenav-overlay').velocity({opacity: 0 }, {duration: 200, queue: false, easing: 'easeOutQuad',
-                  complete: function () {
-                    $(this).remove();
-                  }});
-                dragTarget.css({width: '10px', right: '', left: 0});
-              }
-            }
-            else {
-              if ((menuOut && velocityX >= -0.3) || velocityX > 0.5) {
-                // Return menu to open
-                if (rightPos !== 0) {
-                  menu_id.velocity({'translateX': [0, rightPos]}, {duration: 300, queue: false, easing: 'easeOutQuad'});
-                }
-
-                $('#sidenav-overlay').velocity({opacity: 1 }, {duration: 50, queue: false, easing: 'easeOutQuad'});
-                dragTarget.css({width: '50%', right: '', left: 0});
-                menuOut = true;
-              }
-              else if (!menuOut || velocityX < -0.3) {
-                // Enable Scrolling
-                $('body').css({
-                  overflow: '',
-                  width: ''
-                });
-
-                // Slide menu closed
-                menu_id.velocity({'translateX': [options.menuWidth + 10, rightPos]}, {duration: 200, queue: false, easing: 'easeOutQuad'});
-                $('#sidenav-overlay').velocity({opacity: 0 }, {duration: 200, queue: false, easing: 'easeOutQuad',
-                  complete: function () {
-                    $(this).remove();
-                  }});
-                dragTarget.css({width: '10px', right: 0, left: ''});
-              }
-            }
-
-          }
-        });
-
-          $this.click(function() {
-            if (menuOut === true) {
-              menuOut = false;
-              panning = false;
+        if (options.draggable) {
+          $dragTarget.on('click', function(){
+            if (menuOut) {
               removeMenu();
             }
-            else {
+          });
+
+          $dragTarget.hammer({
+            prevent_default: false
+          }).bind('pan', function(e) {
+
+            if (e.gesture.pointerType == "touch") {
+
+              var direction = e.gesture.direction;
+              var x = e.gesture.center.x;
+              var y = e.gesture.center.y;
+              var velocityX = e.gesture.velocityX;
 
               // Disable Scrolling
               var $body = $('body');
+              var $overlay = $('#sidenav-overlay');
               var oldWidth = $body.innerWidth();
               $body.css('overflow', 'hidden');
               $body.width(oldWidth);
 
-              // Push current drag target on top of DOM tree
-              $('body').append(dragTarget);
+              // If overlay does not exist, create one and if it is clicked, close menu
+              if ($overlay.length === 0) {
+                $overlay = $('<div id="sidenav-overlay"></div>');
+                $overlay.css('opacity', 0).click( function(){
+                  removeMenu();
+                });
+                $('body').append($overlay);
+              }
+
+              // Keep within boundaries
+              if (options.edge === 'left') {
+                if (x > options.menuWidth) { x = options.menuWidth; }
+                else if (x < 0) { x = 0; }
+              }
 
               if (options.edge === 'left') {
-                dragTarget.css({width: '50%', right: 0, left: ''});
-                menu_id.velocity({'translateX': [0, -1 * options.menuWidth]}, {duration: 300, queue: false, easing: 'easeOutQuad'});
+                // Left Direction
+                if (x < (options.menuWidth / 2)) { menuOut = false; }
+                // Right Direction
+                else if (x >= (options.menuWidth / 2)) { menuOut = true; }
+                menu_id.css('transform', 'translateX(' + (x - options.menuWidth) + 'px)');
               }
               else {
-                dragTarget.css({width: '50%', right: '', left: 0});
-                menu_id.velocity({'translateX': [0, options.menuWidth]}, {duration: 300, queue: false, easing: 'easeOutQuad'});
+                // Left Direction
+                if (x < (window.innerWidth - options.menuWidth / 2)) {
+                  menuOut = true;
+                }
+                // Right Direction
+                else if (x >= (window.innerWidth - options.menuWidth / 2)) {
+                 menuOut = false;
+               }
+                var rightPos = (x - options.menuWidth / 2);
+                if (rightPos < 0) {
+                  rightPos = 0;
+                }
+
+                menu_id.css('transform', 'translateX(' + rightPos + 'px)');
               }
 
-              var overlay = $('<div id="sidenav-overlay"></div>');
-              overlay.css('opacity', 0)
-              .click(function(){
-                menuOut = false;
-                panning = false;
-                removeMenu();
-                overlay.velocity({opacity: 0}, {duration: 300, queue: false, easing: 'easeOutQuad',
-                  complete: function() {
-                    $(this).remove();
-                  } });
 
-              });
-              $('body').append(overlay);
-              overlay.velocity({opacity: 1}, {duration: 300, queue: false, easing: 'easeOutQuad',
-                complete: function () {
-                  menuOut = true;
-                  panning = false;
-                }
-              });
+              // Percentage overlay
+              var overlayPerc;
+              if (options.edge === 'left') {
+                overlayPerc = x / options.menuWidth;
+                $overlay.velocity({opacity: overlayPerc }, {duration: 10, queue: false, easing: 'easeOutQuad'});
+              }
+              else {
+                overlayPerc = Math.abs((x - window.innerWidth) / options.menuWidth);
+                $overlay.velocity({opacity: overlayPerc }, {duration: 10, queue: false, easing: 'easeOutQuad'});
+              }
             }
 
-            return false;
+          }).bind('panend', function(e) {
+
+            if (e.gesture.pointerType == "touch") {
+              var $overlay = $('<div id="sidenav-overlay"></div>');
+              var velocityX = e.gesture.velocityX;
+              var x = e.gesture.center.x;
+              var leftPos = x - options.menuWidth;
+              var rightPos = x - options.menuWidth / 2;
+              if (leftPos > 0 ) {
+                leftPos = 0;
+              }
+              if (rightPos < 0) {
+                rightPos = 0;
+              }
+              panning = false;
+
+              if (options.edge === 'left') {
+                // If velocityX <= 0.3 then the user is flinging the menu closed so ignore menuOut
+                if ((menuOut && velocityX <= 0.3) || velocityX < -0.5) {
+                  // Return menu to open
+                  if (leftPos !== 0) {
+                    menu_id.velocity({'translateX': [0, leftPos]}, {duration: 300, queue: false, easing: 'easeOutQuad'});
+                  }
+
+                  $overlay.velocity({opacity: 1 }, {duration: 50, queue: false, easing: 'easeOutQuad'});
+                  $dragTarget.css({width: '50%', right: 0, left: ''});
+                  menuOut = true;
+                }
+                else if (!menuOut || velocityX > 0.3) {
+                  // Enable Scrolling
+                  $('body').css({
+                    overflow: '',
+                    width: ''
+                  });
+                  // Slide menu closed
+                  menu_id.velocity({'translateX': [-1 * options.menuWidth - 10, leftPos]}, {duration: 200, queue: false, easing: 'easeOutQuad'});
+                  $overlay.velocity({opacity: 0 }, {duration: 200, queue: false, easing: 'easeOutQuad',
+                    complete: function () {
+                      $(this).remove();
+                    }});
+                  $dragTarget.css({width: '10px', right: '', left: 0});
+                }
+              }
+              else {
+                if ((menuOut && velocityX >= -0.3) || velocityX > 0.5) {
+                  // Return menu to open
+                  if (rightPos !== 0) {
+                    menu_id.velocity({'translateX': [0, rightPos]}, {duration: 300, queue: false, easing: 'easeOutQuad'});
+                  }
+
+                  $overlay.velocity({opacity: 1 }, {duration: 50, queue: false, easing: 'easeOutQuad'});
+                  $dragTarget.css({width: '50%', right: '', left: 0});
+                  menuOut = true;
+                }
+                else if (!menuOut || velocityX < -0.3) {
+                  // Enable Scrolling
+                  $('body').css({
+                    overflow: '',
+                    width: ''
+                  });
+
+                  // Slide menu closed
+                  menu_id.velocity({'translateX': [options.menuWidth + 10, rightPos]}, {duration: 200, queue: false, easing: 'easeOutQuad'});
+                  $overlay.velocity({opacity: 0 }, {duration: 200, queue: false, easing: 'easeOutQuad',
+                    complete: function () {
+                      $(this).remove();
+                    }});
+                  $dragTarget.css({width: '10px', right: 0, left: ''});
+                }
+              }
+
+            }
           });
+        }
+
+        $this.click(function() {
+          if (menuOut === true) {
+            menuOut = false;
+            panning = false;
+            removeMenu();
+          }
+          else {
+
+            // Disable Scrolling
+            var $body = $('body');
+            var $overlay = $('<div id="sidenav-overlay"></div>');
+            var oldWidth = $body.innerWidth();
+            $body.css('overflow', 'hidden');
+            $body.width(oldWidth);
+
+            // Push current drag target on top of DOM tree
+            $('body').append($dragTarget);
+
+            if (options.edge === 'left') {
+              $dragTarget.css({width: '50%', right: 0, left: ''});
+              menu_id.velocity({'translateX': [0, -1 * options.menuWidth]}, {duration: 300, queue: false, easing: 'easeOutQuad'});
+            }
+            else {
+              $dragTarget.css({width: '50%', right: '', left: 0});
+              menu_id.velocity({'translateX': [0, options.menuWidth]}, {duration: 300, queue: false, easing: 'easeOutQuad'});
+            }
+
+            $overlay.css('opacity', 0)
+            .click(function(){
+              menuOut = false;
+              panning = false;
+              removeMenu();
+              $overlay.velocity({opacity: 0}, {duration: 300, queue: false, easing: 'easeOutQuad',
+                complete: function() {
+                  $(this).remove();
+                } });
+
+            });
+            $('body').append($overlay);
+            $overlay.velocity({opacity: 1}, {duration: 300, queue: false, easing: 'easeOutQuad',
+              complete: function () {
+                menuOut = true;
+                panning = false;
+              }
+            });
+          }
+
+          return false;
+        });
       });
 
 
+    },
+    destroy: function () {
+      var $overlay = $('#sidenav-overlay');
+      var $dragTarget = $('.drag-target[data-sidenav="' + $(this).attr('data-activates') + '"]');
+      $overlay.trigger('click');
+      $dragTarget.remove();
+      $(this).off('click');
+      $overlay.remove();
     },
     show : function() {
       this.trigger('click');
@@ -3067,6 +3130,7 @@ $(document).ready(function(){
           // Set input value
           $autocomplete.on('click', 'li', function () {
             $input.val($(this).text().trim());
+            $input.trigger('change');
             $autocomplete.empty();
           });
         }
@@ -3130,9 +3194,9 @@ $(document).ready(function(){
 
           // Check for multiple type.
           if (type === 'multiple') {
-            options.append($('<li class="' + disabledClass + '"><img src="' + icon_url + '"' + classString + '><span><input type="checkbox"' + disabledClass + '/><label></label>' + option.html() + '</span></li>'));
+            options.append($('<li class="' + disabledClass + '"><img alt="" src="' + icon_url + '"' + classString + '><span><input type="checkbox"' + disabledClass + '/><label></label>' + option.html() + '</span></li>'));
           } else {
-            options.append($('<li class="' + disabledClass + optgroupClass + '"><img src="' + icon_url + '"' + classString + '><span>' + option.html() + '</span></li>'));
+            options.append($('<li class="' + disabledClass + optgroupClass + '"><img alt="" src="' + icon_url + '"' + classString + '><span>' + option.html() + '</span></li>'));
           }
           return true;
         }
@@ -3750,11 +3814,11 @@ $(document).ready(function(){
     secondaryPlaceholder: '',
   };
 
-  $(document).ready(function(){
+  $(document).ready(function() {
     // Handle removal of static chips.
     $(document).on('click', '.chip .close', function(e){
       var $chips = $(this).closest('.chips');
-      if ($chips.data('initialized')) {
+      if ($chips.attr('data-initialized')) {
         return;
       }
       $(this).closest('.chip').remove();
@@ -3777,11 +3841,8 @@ $(document).ready(function(){
       return this.$el.data('chips');
     }
 
-    if ('options' === options) {
-      return this.$el.data('options');
-    }
+    var curr_options = $.extend({}, materialChipsDefaults, options);
 
-    this.$el.data('options', $.extend({}, materialChipsDefaults, options));
 
     // Initialize
     this.init = function() {
@@ -3789,23 +3850,24 @@ $(document).ready(function(){
       var chips;
       self.$el.each(function(){
         var $chips = $(this);
-        if ($chips.data('initialized')) {
+        var chipId = Materialize.guid();
+
+        if ($chips.attr('data-initialized')) {
           // Prevent double initialization.
           return;
         }
-        var options = $chips.data('options');
-        if (!options.data || !options.data instanceof Array) {
-          options.data = [];
+        if (!curr_options.data || !(curr_options.data instanceof Array)) {
+          curr_options.data = [];
         }
-        $chips.data('chips', options.data);
-        $chips.data('index', i);
-        $chips.data('initialized', true);
+        $chips.data('chips', curr_options.data);
+        $chips.attr('data-index', i);
+        $chips.attr('data-initialized', true);
 
         if (!$chips.hasClass(self.SELS.CHIPS)) {
           $chips.addClass('chips');
         }
 
-        self.chips($chips);
+        self.chips($chips, chipId);
         i++;
       });
     };
@@ -3839,10 +3901,9 @@ $(document).ready(function(){
 
         if (e.which === 8 || e.which === 46) {
           e.preventDefault();
-          var chipsIndex = $chips.data('index');
 
           index = $chip.index();
-          self.deleteChip(chipsIndex, index, $chips);
+          self.deleteChip(index, $chips);
 
           var selectIndex = null;
           if ((index + 1) < length) {
@@ -3854,7 +3915,7 @@ $(document).ready(function(){
           if (selectIndex < 0) selectIndex = null;
 
           if (null !== selectIndex) {
-            self.selectChip(chipsIndex, selectIndex, $chips);
+            self.selectChip(selectIndex, $chips);
           }
           if (!length) $chips.find('input').focus();
 
@@ -3865,7 +3926,7 @@ $(document).ready(function(){
             return;
           }
           $(SELS.CHIP).removeClass('selected');
-          self.selectChip($chips.data('index'), index, $chips);
+          self.selectChip(index, $chips);
 
         // right
         } else if (e.which === 39) {
@@ -3875,36 +3936,44 @@ $(document).ready(function(){
             $chips.find('input').focus();
             return;
           }
-          self.selectChip($chips.data('index'), index, $chips);
+          self.selectChip(index, $chips);
         }
       });
 
       self.$document.on('focusin', SELS.CHIPS + ' ' + SELS.INPUT, function(e){
-        $(e.target).closest(SELS.CHIPS).addClass('focus');
+        var $currChips = $(e.target).closest(SELS.CHIPS);
+        $currChips.addClass('focus');
+        $currChips.siblings('label, .prefix').addClass('active');
         $(SELS.CHIP).removeClass('selected');
       });
 
       self.$document.on('focusout', SELS.CHIPS + ' ' + SELS.INPUT, function(e){
-        $(e.target).closest(SELS.CHIPS).removeClass('focus');
+        var $currChips = $(e.target).closest(SELS.CHIPS);
+        $currChips.removeClass('focus');
+
+        // Remove active if empty
+        if (!$currChips.data('chips').length) {
+          $currChips.siblings('label').removeClass('active');
+        }
+        $currChips.siblings('.prefix').removeClass('active');
       });
 
       self.$document.on('keydown', SELS.CHIPS + ' ' + SELS.INPUT, function(e){
         var $target = $(e.target);
         var $chips = $target.closest(SELS.CHIPS);
-        var chipsIndex = $chips.data('index');
         var chipsLength = $chips.children(SELS.CHIP).length;
 
         // enter
         if (13 === e.which) {
           e.preventDefault();
-          self.addChip(chipsIndex, {tag: $target.val()}, $chips);
+          self.addChip({tag: $target.val()}, $chips);
           $target.val('');
           return;
         }
 
         // delete or left
          if ((8 === e.keyCode || 37 === e.keyCode) && '' === $target.val() && chipsLength) {
-          self.selectChip(chipsIndex, chipsLength - 1, $chips);
+          self.selectChip(chipsLength - 1, $chips);
           $target.blur();
           return;
         }
@@ -3915,24 +3984,29 @@ $(document).ready(function(){
         var $chips = $target.closest(SELS.CHIPS);
         var $chip = $target.closest(SELS.CHIP);
         e.stopPropagation();
-        self.deleteChip(
-          $chips.data('index'),
-          $chip.index(),
-          $chips
-        );
+        self.deleteChip($chip.index(), $chips);
         $chips.find('input').focus();
       });
     };
 
-    this.chips = function($chips) {
+    this.chips = function($chips, chipId) {
       var html = '';
-      var options = $chips.data('options');
       $chips.data('chips').forEach(function(elem){
         html += self.renderChip(elem);
       });
-      html += '<input class="input" placeholder="">';
+      html += '<input id="' + chipId +'" class="input" placeholder="">';
       $chips.html(html);
       self.setPlaceholder($chips);
+
+      // Set for attribute for label
+      var label = $chips.next('label');
+      if (label.length) {
+        label.attr('for', chipId);
+
+        if ($chips.data('chips').length) {
+          label.addClass('active');
+        }
+      }
     };
 
     this.renderChip = function(elem) {
@@ -3948,11 +4022,11 @@ $(document).ready(function(){
     };
 
     this.setPlaceholder = function($chips) {
-      var options = $chips.data('options');
-      if ($chips.data('chips').length && options.placeholder) {
-        $chips.find('input').prop('placeholder', options.placeholder);
-      } else if (!$chips.data('chips').length && options.secondaryPlaceholder) {
-        $chips.find('input').prop('placeholder', options.secondaryPlaceholder);
+      if ($chips.data('chips').length && curr_options.placeholder) {
+        $chips.find('input').prop('placeholder', curr_options.placeholder);
+
+      } else if (!$chips.data('chips').length && curr_options.secondaryPlaceholder) {
+        $chips.find('input').prop('placeholder', curr_options.secondaryPlaceholder);
       }
     };
 
@@ -3968,27 +4042,42 @@ $(document).ready(function(){
       return '' !== elem.tag && !exists;
     };
 
-    this.addChip = function(chipsIndex, elem, $chips) {
+    this.addChip = function(elem, $chips) {
       if (!self.isValid($chips, elem)) {
         return;
       }
-      var options = $chips.data('options');
       var chipHtml = self.renderChip(elem);
-      $chips.data('chips').push(elem);
+      var newData = [];
+      var oldData = $chips.data('chips');
+      for (var i = 0; i < oldData.length; i++) {
+        newData.push(oldData[i]);
+      }
+      newData.push(elem);
+
+      $chips.data('chips', newData);
       $(chipHtml).insertBefore($chips.find('input'));
       $chips.trigger('chip.add', elem);
       self.setPlaceholder($chips);
     };
 
-    this.deleteChip = function(chipsIndex, chipIndex, $chips) {
+    this.deleteChip = function(chipIndex, $chips) {
       var chip = $chips.data('chips')[chipIndex];
       $chips.find('.chip').eq(chipIndex).remove();
-      $chips.data('chips').splice(chipIndex, 1);
+
+      var newData = [];
+      var oldData = $chips.data('chips');
+      for (var i = 0; i < oldData.length; i++) {
+        if (i !== chipIndex) {
+          newData.push(oldData[i]);
+        }
+      }
+
+      $chips.data('chips', newData);
       $chips.trigger('chip.delete', chip);
       self.setPlaceholder($chips);
     };
 
-    this.selectChip = function(chipsIndex, chipIndex, $chips) {
+    this.selectChip = function(chipIndex, $chips) {
       var $chip = $chips.find('.chip').eq(chipIndex);
       if ($chip && false === $chip.hasClass('selected')) {
         $chip.addClass('selected');
@@ -4118,7 +4207,7 @@ $(document).ready(function(){
 
 
   var openFABMenu = function (btn) {
-    $this = btn;
+    var $this = btn;
     if ($this.hasClass('active') === false) {
 
       // Get direction option
@@ -4147,7 +4236,7 @@ $(document).ready(function(){
   };
 
   var closeFABMenu = function (btn) {
-    $this = btn;
+    var $this = btn;
     // Get direction option
     var horizontal = $this.hasClass('horizontal');
     var offsetY, offsetX;
@@ -7022,7 +7111,8 @@ Picker.extend( 'pickadate', DatePicker )
         shift: 0, // spacing for center image
         padding: 0, // Padding between non center items
         full_width: false, // Change to full width styles
-        indicators: false // Toggle indicators
+        indicators: false, // Toggle indicators
+        no_wrap: false // Don't wrap around and cycle through items.
       };
       options = $.extend(defaults, options);
 
@@ -7041,16 +7131,17 @@ Picker.extend( 'pickadate', DatePicker )
         // Don't double initialize.
         if (view.hasClass('initialized')) {
           // Redraw carousel.
-          $(this).trigger('carouselNext', [.000001]);
+          $(this).trigger('carouselNext', [0.000001]);
           return true;
         }
+
 
         // Options
         if (options.full_width) {
           options.dist = 0;
           var firstImage = view.find('.carousel-item img').first();
           if (firstImage.length) {
-            imageHeight = firstImage.load(function(){
+            imageHeight = firstImage.on('load', function(){
               view.css('height', $(this).height());
             });
           } else {
@@ -7142,6 +7233,7 @@ Picker.extend( 'pickadate', DatePicker )
           delta = offset - center * dim;
           dir = (delta < 0) ? 1 : -1;
           tween = -dir * delta * 2 / dim;
+          half = count >> 1;
 
           if (!options.full_width) {
             alignment = 'translateX(' + (view[0].clientWidth - item_width) / 2 + 'px) ';
@@ -7161,16 +7253,19 @@ Picker.extend( 'pickadate', DatePicker )
           }
 
           // center
-          el = images[wrap(center)];
-          el.style[xform] = alignment +
-            ' translateX(' + (-delta / 2) + 'px)' +
-            ' translateX(' + (dir * options.shift * tween * i) + 'px)' +
-            ' translateZ(' + (options.dist * tween) + 'px)';
-          el.style.zIndex = 0;
-          if (options.full_width) { tweenedOpacity = 1; }
-          else { tweenedOpacity = 1 - 0.2 * tween; }
-          el.style.opacity = tweenedOpacity;
-          half = count >> 1;
+          // Don't show wrapped items.
+          if (!options.no_wrap || (center >= 0 && center < count)) {
+            el = images[wrap(center)];
+            el.style[xform] = alignment +
+              ' translateX(' + (-delta / 2) + 'px)' +
+              ' translateX(' + (dir * options.shift * tween * i) + 'px)' +
+              ' translateZ(' + (options.dist * tween) + 'px)';
+            el.style.zIndex = 0;
+            if (options.full_width) { tweenedOpacity = 1; }
+            else { tweenedOpacity = 1 - 0.2 * tween; }
+            el.style.opacity = tweenedOpacity;
+            el.style.display = 'block';
+          }
 
           for (i = 1; i <= half; ++i) {
             // right side
@@ -7181,12 +7276,16 @@ Picker.extend( 'pickadate', DatePicker )
               zTranslation = options.dist * (i * 2 + tween * dir);
               tweenedOpacity = 1 - 0.2 * (i * 2 + tween * dir);
             }
-            el = images[wrap(center + i)];
-            el.style[xform] = alignment +
-              ' translateX(' + (options.shift + (dim * i - delta) / 2) + 'px)' +
-              ' translateZ(' + zTranslation + 'px)';
-            el.style.zIndex = -i;
-            el.style.opacity = tweenedOpacity;
+            // Don't show wrapped items.
+            if (!options.no_wrap || center + i < count) {
+              el = images[wrap(center + i)];
+              el.style[xform] = alignment +
+                ' translateX(' + (options.shift + (dim * i - delta) / 2) + 'px)' +
+                ' translateZ(' + zTranslation + 'px)';
+              el.style.zIndex = -i;
+              el.style.opacity = tweenedOpacity;
+              el.style.display = 'block';
+            }
 
 
             // left side
@@ -7197,24 +7296,32 @@ Picker.extend( 'pickadate', DatePicker )
               zTranslation = options.dist * (i * 2 - tween * dir);
               tweenedOpacity = 1 - 0.2 * (i * 2 - tween * dir);
             }
-            el = images[wrap(center - i)];
-            el.style[xform] = alignment +
-              ' translateX(' + (-options.shift + (-dim * i - delta) / 2) + 'px)' +
-              ' translateZ(' + zTranslation + 'px)';
-            el.style.zIndex = -i;
-            el.style.opacity = tweenedOpacity;
+            // Don't show wrapped items.
+            if (!options.no_wrap || center - i >= 0) {
+              el = images[wrap(center - i)];
+              el.style[xform] = alignment +
+                ' translateX(' + (-options.shift + (-dim * i - delta) / 2) + 'px)' +
+                ' translateZ(' + zTranslation + 'px)';
+              el.style.zIndex = -i;
+              el.style.opacity = tweenedOpacity;
+              el.style.display = 'block';
+            }
           }
 
           // center
-          el = images[wrap(center)];
-          el.style[xform] = alignment +
-            ' translateX(' + (-delta / 2) + 'px)' +
-            ' translateX(' + (dir * options.shift * tween) + 'px)' +
-            ' translateZ(' + (options.dist * tween) + 'px)';
-          el.style.zIndex = 0;
-          if (options.full_width) { tweenedOpacity = 1; }
-          else { tweenedOpacity = 1 - 0.2 * tween; }
-          el.style.opacity = tweenedOpacity;
+          // Don't show wrapped items.
+          if (!options.no_wrap || (center >= 0 && center < count)) {
+            el = images[wrap(center)];
+            el.style[xform] = alignment +
+              ' translateX(' + (-delta / 2) + 'px)' +
+              ' translateX(' + (dir * options.shift * tween) + 'px)' +
+              ' translateZ(' + (options.dist * tween) + 'px)';
+            el.style.zIndex = 0;
+            if (options.full_width) { tweenedOpacity = 1; }
+            else { tweenedOpacity = 1 - 0.2 * tween; }
+            el.style.opacity = tweenedOpacity;
+            el.style.display = 'block';
+          }
         }
 
         function track() {
@@ -7261,7 +7368,6 @@ Picker.extend( 'pickadate', DatePicker )
               e.preventDefault();
               e.stopPropagation();
             }
-            
             cycleTo(clickedIndex);
           }
         }
@@ -7270,16 +7376,17 @@ Picker.extend( 'pickadate', DatePicker )
           var diff = (center % count) - n;
 
           // Account for wraparound.
-          if (diff < 0) {
-            if (Math.abs(diff + count) < Math.abs(diff)) { diff += count; }
+          if (!options.no_wrap) {
+            if (diff < 0) {
+              if (Math.abs(diff + count) < Math.abs(diff)) { diff += count; }
 
-          } else if (diff > 0) {
-            if (Math.abs(diff - count) < diff) { diff -= count; }
+            } else if (diff > 0) {
+              if (Math.abs(diff - count) < diff) { diff -= count; }
+            }
           }
 
           // Call prev or next accordingly.
           if (diff < 0) {
-            
             view.trigger('carouselNext', [Math.abs(diff)]);
 
           } else if (diff > 0) {
@@ -7351,6 +7458,15 @@ Picker.extend( 'pickadate', DatePicker )
             target = offset + amplitude;
           }
           target = Math.round(target / dim) * dim;
+
+          // No wrap of items.
+          if (options.no_wrap) {
+            if (target >= dim * (count - 1)) {
+              target = dim * (count - 1);
+            } else if (target < 0) {
+              target = 0;
+            }
+          }
           amplitude = target - offset;
           timestamp = Date.now();
           requestAnimationFrame(autoScroll);
@@ -7380,7 +7496,6 @@ Picker.extend( 'pickadate', DatePicker )
         scroll(offset);
 
         $(this).on('carouselNext', function(e, n) {
-          
           if (n === undefined) {
             n = 1;
           }
